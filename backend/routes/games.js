@@ -3,6 +3,7 @@ const Session = require('../models/Session');
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
 const router = express.Router();
+const axios = require('axios');
 
 // Start a game session
 router.post('/start', protect, async (req, res) => {
@@ -60,6 +61,21 @@ router.get('/leaderboard', async (req, res) => {
     res.json({ leaderboard: users });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+// Games
+
+router.get('/', async (req, res) => {
+  try {
+    const response = await axios.get(
+      'https://feeds.gamepix.com/v2/json?sid=33979&pagination=12&page=1&limit=200'
+    );
+
+    res.json(response.data);
+  } catch (error) {
+    console.error(error.message);
+    res.status(500).json({ error: 'Failed to fetch games' });
   }
 });
 

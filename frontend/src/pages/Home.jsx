@@ -37,28 +37,58 @@ export default function Home() {
   const searchQ = new URLSearchParams(location.search).get('search') || '';
 
   // Load GamePix games
+  // useEffect(() => {
+  //   if (!GAMEPIX_KEY || GAMEPIX_KEY === 'YOUR_GAMEPIX_API_KEY') {
+  //     setGames(FALLBACK_GAMES);
+  //     setFiltered(FALLBACK_GAMES);
+  //     setLoading(false);
+  //     return;
+  //   }
+  //   fetch(`https://api.gamepix.com/v2/feed?key=${GAMEPIX_KEY}&limit=200`)
+  //     .then(r => r.json())
+  //     .then(data => {
+  //       if (data?.data?.length) {
+  //         const mapped = data.data.map(g => ({
+  //           id: g.id, title: g.title, category: g.categories?.[0] || 'arcade',
+  //           rating: (Math.random() * 1.5 + 3.5).toFixed(1),
+  //           thumbnail: g.thumbnail, url: g.url, badge: Math.random() > 0.8 ? 'HOT' : Math.random() > 0.9 ? 'NEW' : ''
+  //         }));
+  //         setGames(mapped); setFiltered(mapped);
+  //       }
+  //     })
+  //     .catch(() => {})
+  //     .finally(() => setLoading(false));
+  // }, []);
+
   useEffect(() => {
-    if (!GAMEPIX_KEY || GAMEPIX_KEY === 'YOUR_GAMEPIX_API_KEY') {
-      setGames(FALLBACK_GAMES);
-      setFiltered(FALLBACK_GAMES);
-      setLoading(false);
-      return;
-    }
-    fetch(`https://api.gamepix.com/v2/feed?key=${GAMEPIX_KEY}&limit=200`)
-      .then(r => r.json())
-      .then(data => {
-        if (data?.data?.length) {
-          const mapped = data.data.map(g => ({
-            id: g.id, title: g.title, category: g.categories?.[0] || 'arcade',
-            rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-            thumbnail: g.thumbnail, url: g.url, badge: Math.random() > 0.8 ? 'HOT' : Math.random() > 0.9 ? 'NEW' : ''
-          }));
-          setGames(mapped); setFiltered(mapped);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+  fetch("https://your-backend.onrender.com/api/games") 
+    .then(res => res.json())
+    .then(data => {
+      console.log(data);
+
+      if (data?.data?.length) {
+        const mapped = data.data.map(g => ({
+          id: g.id,
+          title: g.title,
+          category: g.categories?.[0] || 'arcade',
+          rating: (Math.random() * 1.5 + 3.5).toFixed(1),
+          thumbnail: g.thumbnail,
+          url: g.url,
+          badge:
+            Math.random() > 0.8
+              ? 'HOT'
+              : Math.random() > 0.9
+              ? 'NEW'
+              : ''
+        }));
+
+        setGames(mapped);
+        setFiltered(mapped);
+      }
+    })
+    .catch(err => console.error(err))
+    .finally(() => setLoading(false));
+}, []);
 
   // Filter by category and search
   useEffect(() => {
