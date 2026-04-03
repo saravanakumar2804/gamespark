@@ -1,0 +1,39 @@
+:root {
+  --sidebar: #0d0d1a;
+  --sidebar2: #1a1a2e;
+  --bg: #f0f2f8;
+  --card: #ffffff;
+  --primary: #ff6b35;
+  --primary-light: #ff6b3520;
+  --secondary: #7c3aed;
+  --accent: #06d6a0;
+  --gold: #ffd166;
+  --dark: #1a1a2e;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --radius: 14px;
+  --sidebar-w: 240px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: var(--bg);
+  color: var(--dark);
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 99px; }
+
+a { text-decoration: none; color: inherit; }
+
+button { font-family: 'Nunito', sans-serif; cursor: pointer; }
+
+input, textarea {
+  font-family: 'Nunito', sans-serif;
+  outline: none;
+}
+
+.orbitron { font-family: 'Orbitron', monospace; }
