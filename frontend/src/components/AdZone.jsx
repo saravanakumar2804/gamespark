@@ -11,7 +11,7 @@ export default function AdZone({ slot, format = 'auto', style = {} }) {
     } catch {}
   }, []);
 
-  const publisherId = process.env.REACT_APP_ADSENSE_ID || 'ca-pub-XXXXXXXXXXXXXXXX';
+  const publisherId = process.env.REACT_APP_ADSENSE_ID || 'ca-pub-7714051817753730';
 
   return (
     <div style={{ textAlign: 'center', margin: '12px 0', minHeight: 90, background: '#f9fafb', border: '1px dashed #e5e7eb', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', ...style }}>
