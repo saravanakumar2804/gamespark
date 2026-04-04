@@ -59,21 +59,21 @@ export default function Home() {
   //     .catch(() => {})
   //     .finally(() => setLoading(false));
   // }, []);
-
-  useEffect(() => {
-  fetch("https://gamespark-api.onrender.com/api/games") 
+  
+useEffect(() => {
+  fetch("https://gamespark-api.onrender.com/api/games")
     .then(res => res.json())
     .then(data => {
       console.log(data);
 
-      if (data?.data?.length) {
-        const mapped = data.data.map(g => ({
+      if (data?.items?.length) {
+        const mapped = data.items.map(g => ({
           id: g.id,
           title: g.title,
-          category: g.categories?.[0] || 'arcade',
+          category: g.category || 'arcade',
           rating: (Math.random() * 1.5 + 3.5).toFixed(1),
-          thumbnail: g.thumbnail,
-          url: g.url,
+          thumbnail: g.image || g.thumbnail,
+          url: `https://games.gamepix.com/play/${g.namespace}`,
           badge:
             Math.random() > 0.8
               ? 'HOT'
@@ -86,8 +86,7 @@ export default function Home() {
         setFiltered(mapped);
       }
     })
-    .catch(err => console.error(err))
-    .finally(() => setLoading(false));
+    .catch(err => console.error(err));
 }, []);
 
   // Filter by category and search
