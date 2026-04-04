@@ -68,8 +68,11 @@ router.get('/leaderboard', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
+    const page = req.query.page || 1;
+    const limit = req.query.limit || 30;
+
     const response = await axios.get(
-      'https://feeds.gamepix.com/v2/json?sid=33979&pagination=12&page=1&limit=200'
+      `https://feeds.gamepix.com/v2/json?sid=33979&pagination=${limit}&page=${page}`
     );
 
     res.json(response.data);
