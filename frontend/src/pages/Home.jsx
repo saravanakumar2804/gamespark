@@ -61,7 +61,7 @@ export default function Home() {
   // }, []);
 
   useEffect(() => {
-  fetch("https://your-backend.onrender.com/api/games") 
+  fetch("https://gamespark-api.onrender.com/api/games") 
     .then(res => res.json())
     .then(data => {
       console.log(data);
