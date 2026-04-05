@@ -243,7 +243,7 @@ export default function Home() {
         {loading ? (
           <div style={{ textAlign: "center", padding: 60, color: "var(--muted)", fontWeight: 700 }}>
             <div style={{ fontSize: 40, marginBottom: 14 }}>🎮</div>
-            Loading games from GamePix...
+            Loading games...
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, color: "var(--muted)", fontWeight: 700 }}>

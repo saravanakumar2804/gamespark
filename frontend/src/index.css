@@ -15,7 +15,7 @@
   --sidebar-w: 240px;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Nunito', sans-serif;
@@ -28,12 +28,64 @@ body {
 ::-webkit-scrollbar-thumb { background: var(--primary); border-radius: 99px; }
 
 a { text-decoration: none; color: inherit; }
-
 button { font-family: 'Nunito', sans-serif; cursor: pointer; }
+input, textarea { font-family: 'Nunito', sans-serif; outline: none; }
+.orbitron { font-family: 'Orbitron', monospace; }
 
-input, textarea {
-  font-family: 'Nunito', sans-serif;
-  outline: none;
+/* ── MOBILE: hide sidebar, remove left margin ── */
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
+
+  /* Sidebar hidden on mobile */
+  aside {
+    display: none !important;
+  }
+
+  /* Main content takes full width */
+  .main-wrapper {
+    margin-left: 0 !important;
+  }
+
+  /* Content padding smaller on mobile */
+  .content-pad {
+    padding: 14px 12px 60px !important;
+  }
+
+  /* Game grid: 2 columns on mobile */
+  .game-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  /* Game card thumbnail shorter on mobile */
+  .game-thumb {
+    height: 100px !important;
+  }
+
+  /* Hero section smaller padding */
+  .hero-section {
+    padding: 22px 18px !important;
+  }
+
+  /* Navbar smaller */
+  .navbar-bar {
+    padding: 0 12px !important;
+    gap: 8px !important;
+  }
+
+  .navbar-actions .streak-badge {
+    display: none;
+  }
 }
 
-.orbitron { font-family: 'Orbitron', monospace; }
+@media (max-width: 480px) {
+  /* Very small phones: still 2 columns but smaller */
+  .game-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .game-thumb {
+    height: 90px !important;
+  }
+}
