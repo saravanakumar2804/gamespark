@@ -8,6 +8,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Admin from './pages/Admin';
+import Feedback from './pages/Feedback';
+import MyGames from './pages/MyGames';
 import { Privacy, About, CategoryPage, NotFound, Leaderboard as LeaderboardPage } from './pages/Leaderboard';
 
 export default function App() {
@@ -16,30 +18,37 @@ export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
 
-          {/* Mobile sidebar overlay */}
+          {/* ── Mobile overlay — clicking it closes sidebar ── */}
           {sidebarOpen && (
             <div
               onClick={() => setSidebarOpen(false)}
-              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 150 }}
+              style={{
+                position: 'fixed', inset: 0,
+                background: 'rgba(0,0,0,0.55)',
+                zIndex: 190,
+                // Only show on mobile
+              }}
+              className="mobile-overlay"
             />
           )}
 
-          {/* Sidebar — hidden on mobile via CSS, shown when open */}
-          <div style={{
-            position: 'fixed', top: 0, left: 0, zIndex: 200, height: '100vh',
-            transform: sidebarOpen ? 'translateX(0)' : undefined,
-            // On desktop always visible via CSS sidebar-w variable
-          }}>
-            <Sidebar onClose={() => setSidebarOpen(false)} />
-          </div>
+          {/* ── Sidebar ── */}
+          <Sidebar
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
 
-          {/* Main content */}
-          <div
-            className="main-wrapper"
-            style={{ flex: 1, marginLeft: 'var(--sidebar-w)', display: 'flex', flexDirection: 'column', minWidth: 0 }}
-          >
+          {/* ── Main content ── */}
+          <div style={{
+            flex: 1,
+            // On desktop: push right of sidebar. On mobile: full width (CSS handles this)
+            marginLeft: 'var(--sidebar-w)',
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: 0,
+          }} className="main-content">
             <Navbar onMenuClick={() => setSidebarOpen(o => !o)} />
             <main style={{ flex: 1 }}>
               <Routes>
@@ -52,11 +61,22 @@ export default function App() {
                 <Route path="/category/:cat" element={<CategoryPage />} />
                 <Route path="/privacy"       element={<Privacy />} />
                 <Route path="/about"         element={<About />} />
+                <Route path="/feedback"      element={<Feedback />} />
+                <Route path="/my-games"      element={<MyGames />} />
                 <Route path="*"              element={<NotFound />} />
               </Routes>
             </main>
           </div>
         </div>
+
+        {/* Global responsive styles */}
+        <style>{`
+          :root { --sidebar-w: 240px; }
+          @media (max-width: 768px) {
+            :root { --sidebar-w: 0px; }
+            .main-content { margin-left: 0 !important; }
+          }
+        `}</style>
       </BrowserRouter>
     </AuthProvider>
   );
