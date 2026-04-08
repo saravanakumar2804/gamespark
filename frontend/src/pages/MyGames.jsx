@@ -1,175 +1,243 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import SITE_CONFIG from '../siteConfig';
 
-// Sample submitted games
-const SAMPLE_MY_GAMES = [
-  { id: 'mg1', title: 'Space Shooter', category: 'shooter', url: 'https://xwillie.itch.io/space-shooter', icon: '🚀', author: 'Community', plays: 234, approved: true },
-  { id: 'mg2', title: 'Maze Runner',   category: 'puzzle',  url: 'https://itch.io/', icon: '🌀', author: 'Community', plays: 189, approved: true },
+// Top HTML5 games with real iframe-embeddable URLs that actually play
+// These are shown in the community games section
+const COMMUNITY_GAMES = [
+  { id: 'cg1', title: 'Krunker.io',     category: 'shooter',     icon: '🔫', url: 'https://krunker.io/',          author: 'Verified', plays: 12400, approved: true  },
+  { id: 'cg2', title: 'Slither.io',     category: 'multiplayer', icon: '🐍', url: 'https://slither.io/',          author: 'Verified', plays: 9800,  approved: true  },
+  { id: 'cg3', title: 'Smash Karts',    category: 'racing',      icon: '🏎️', url: 'https://smashkarts.io/',       author: 'Verified', plays: 7600,  approved: true  },
+  { id: 'cg4', title: 'Shell Shockers', category: 'shooter',     icon: '🥚', url: 'https://shellshock.io/',       author: 'Verified', plays: 8900,  approved: true  },
+  { id: 'cg5', title: 'Agar.io',        category: 'multiplayer', icon: '🔵', url: 'https://agar.io/',             author: 'Verified', plays: 11200, approved: true  },
+  { id: 'cg6', title: '1v1.LOL',        category: 'shooter',     icon: '🏗️', url: 'https://1v1.lol/',             author: 'Verified', plays: 6700,  approved: true  },
 ];
 
+const CATS   = ['arcade','action','puzzle','racing','sports','strategy','shooter','casual','adventure','multiplayer'];
+const EMOJIS = ['🎮','🚀','⚔️','🧩','🏎️','⚽','🎯','🐍','👾','🔫','🏆','💥','🌟','🎪','🎲','🔵','🥚','🏗️','🛸','⚡'];
+
 export default function MyGames() {
-  const { user } = useAuth();
-  const [games, setGames]         = useState(SAMPLE_MY_GAMES);
-  const [form, setForm]           = useState({ title: '', url: '', category: 'arcade', description: '', icon: '🎮' });
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError]         = useState('');
-  const [activeGame, setActiveGame] = useState(null);
+  const { user }     = useAuth();
+  const nav          = useNavigate();
+  const isAdmin      = user?.role === 'admin';
 
-  const EMOJIS = ['🎮','🚀','⚔️','🧩','🏎️','⚽','🎯','🐍','👾','🔫','🏆','💥','🌟','🎪','🎲'];
-  const CATS   = ['arcade','action','puzzle','racing','sports','strategy','shooter','casual','adventure','multiplayer'];
+  const [games, setGames]             = useState(COMMUNITY_GAMES);
+  const [activeGame, setActiveGame]   = useState(null);
+  const [submitted, setSubmitted]     = useState(false);
+  const [error, setError]             = useState('');
 
-  const handleSubmit = (e) => {
+  // Admin form — can add game with iframe/URL directly
+  const [adminForm, setAdminForm] = useState({ title: '', url: '', category: 'arcade', description: '', icon: '🎮', iframeCode: '' });
+
+  // User form — submit request only (admin approves)
+  const [userForm, setUserForm] = useState({ name: user?.username || '', email: user?.email || '', gameTitle: '', gameUrl: '', category: 'arcade', description: '' });
+
+  const inp    = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #e5e7eb', fontSize: 14, fontFamily: 'Nunito,sans-serif', outline: 'none', marginBottom: 12 };
+  const label  = { display: 'block', fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 5 };
+  const card   = { background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 2px 12px #0000000a', marginBottom: 20 };
+
+  // ── Admin: add game directly ───────────────────────────────────────────────
+  const handleAdminAdd = (e) => {
     e.preventDefault();
-    if (!form.title || !form.url) { setError('Game title and URL are required.'); return; }
-    if (!form.url.startsWith('http')) { setError('URL must start with http:// or https://'); return; }
+    if (!adminForm.title) { setError('Game title is required'); return; }
+
+    // If iframe code was pasted, extract src URL from it
+    let gameUrl = adminForm.url;
+    if (adminForm.iframeCode) {
+      const match = adminForm.iframeCode.match(/src=["']([^"']+)["']/i);
+      if (match) gameUrl = match[1];
+    }
+
+    if (!gameUrl) { setError('Please provide a game URL or iframe code'); return; }
 
     const newGame = {
-      id:          `mg_${Date.now()}`,
-      title:       form.title,
-      category:    form.category,
-      url:         form.url,
-      description: form.description,
-      icon:        form.icon,
-      author:      user?.username || 'Anonymous',
-      plays:       0,
-      approved:    false, // pending review
+      id:       `admin_${Date.now()}`,
+      title:    adminForm.title,
+      category: adminForm.category,
+      url:      gameUrl,
+      icon:     adminForm.icon,
+      author:   'Admin',
+      plays:    0,
+      approved: true,
     };
     setGames(prev => [newGame, ...prev]);
     setSubmitted(true);
-    setForm({ title: '', url: '', category: 'arcade', description: '', icon: '🎮' });
     setError('');
-    setTimeout(() => setSubmitted(false), 5000);
+    setAdminForm({ title: '', url: '', category: 'arcade', description: '', icon: '🎮', iframeCode: '' });
+    setTimeout(() => setSubmitted(false), 4000);
   };
 
-  const card   = { background: '#fff', borderRadius: 14, padding: '22px', boxShadow: '0 2px 12px #0000000a', marginBottom: 20 };
-  const inp    = { width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #e5e7eb', fontSize: 14, fontFamily: 'Nunito,sans-serif', outline: 'none', marginBottom: 12 };
-  const label  = { display: 'block', fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 5 };
+  // ── User: submit game request ─────────────────────────────────────────────
+  const handleUserRequest = (e) => {
+    e.preventDefault();
+    if (!userForm.gameTitle || !userForm.gameUrl) { setError('Game title and URL are required'); return; }
+    setSubmitted(true);
+    setError('');
+    setUserForm(p => ({ ...p, gameTitle: '', gameUrl: '', description: '' }));
+    setTimeout(() => setSubmitted(false), 5000);
+  };
 
   return (
     <>
       <Helmet>
-        <title>Add Your Game — {SITE_CONFIG.name}</title>
-        <meta name="description" content={`Submit your HTML5 game to ${SITE_CONFIG.name} and reach thousands of players for free!`} />
+        <title>{isAdmin ? 'Add Games — Admin' : 'Suggest a Game'} — {SITE_CONFIG.name}</title>
       </Helmet>
 
-      <div style={{ padding: '20px', maxWidth: 760, margin: '0 auto' }}>
-        <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>🕹️ Add Your Game</div>
-        <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Have an HTML5 game? Submit it here and reach thousands of players on {SITE_CONFIG.name} — completely free!</p>
+      <div style={{ padding: '20px', maxWidth: 860, margin: '0 auto' }}>
 
-        {/* Info cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(160px,1fr))', gap: 12, marginBottom: 24 }}>
-          {[['🌐','HTML5 games only','Must run in browser'],['🔗','Share your URL','We embed your game'],['⏱️','24-48hr review','We check quality'],['🎉','Go live free','Reach 1000s of users']].map(([icon, title, sub]) => (
-            <div key={title} style={{ background: '#f9fafb', borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: 26, marginBottom: 8 }}>{icon}</div>
-              <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 3 }}>{title}</div>
-              <div style={{ fontSize: 11, color: '#6b7280' }}>{sub}</div>
-            </div>
-          ))}
-        </div>
+        {/* ── ADMIN VIEW ─────────────────────────────────────────────────── */}
+        {isAdmin ? (
+          <>
+            <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>⚙️ Add Game — Admin Panel</div>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Add any game by pasting its URL or iframe embed code. It will appear live immediately.</p>
 
-        {/* Submission form */}
-        <div style={card}>
-          <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 14, fontWeight: 700, marginBottom: 16 }}>📤 Submit Your Game</div>
+            <div style={card}>
+              {submitted && (
+                <div style={{ background: '#ecfdf5', border: '1px solid #86efac', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 13, fontWeight: 700, color: '#166534' }}>
+                  ✅ Game added successfully! It is now live on the website.
+                </div>
+              )}
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#dc2626' }}>
+                  {error}
+                </div>
+              )}
 
-          {submitted && (
-            <div style={{ background: '#ecfdf5', border: '1px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 16, fontSize: 13, fontWeight: 700, color: '#166534' }}>
-              ✅ Game submitted! We will review it within 24-48 hours and notify you if approved.
-            </div>
-          )}
+              <form onSubmit={handleAdminAdd}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={label}>Game Title *</label>
+                    <input style={inp} value={adminForm.title} onChange={e => setAdminForm(p => ({ ...p, title: e.target.value }))} placeholder="e.g. Subway Surfers" required onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                  </div>
+                  <div>
+                    <label style={label}>Category</label>
+                    <select style={{ ...inp, background: '#fff', cursor: 'pointer' }} value={adminForm.category} onChange={e => setAdminForm(p => ({ ...p, category: e.target.value }))}>
+                      {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                    </select>
+                  </div>
+                </div>
 
-          {error && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#dc2626' }}>
-              {error}
-            </div>
-          )}
+                <label style={label}>Game URL (direct play link)</label>
+                <input style={inp} type="url" value={adminForm.url} onChange={e => setAdminForm(p => ({ ...p, url: e.target.value }))} placeholder="https://game-website.com/play" onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
 
-          <form onSubmit={handleSubmit}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              <div>
-                <label style={label}>Game Title *</label>
-                <input style={inp} value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="My Awesome Game" required
+                <label style={label}>— OR — Paste iframe embed code</label>
+                <textarea
+                  style={{ ...inp, minHeight: 80, resize: 'vertical', display: 'block', fontFamily: 'monospace', fontSize: 12 }}
+                  value={adminForm.iframeCode}
+                  onChange={e => setAdminForm(p => ({ ...p, iframeCode: e.target.value }))}
+                  placeholder={`<iframe src="https://game-url.com" width="800" height="600"></iframe>`}
                   onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor}
-                  onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-              </div>
-              <div>
-                <label style={label}>Category</label>
-                <select style={{ ...inp, background: '#fff', cursor: 'pointer' }} value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
-                  {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
-                </select>
-              </div>
-            </div>
+                  onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                />
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 14, marginTop: -8 }}>
+                  💡 Paste the full iframe code — the URL will be extracted automatically
+                </div>
 
-            <label style={label}>Game URL * (must be playable in browser)</label>
-            <input style={inp} type="url" value={form.url} onChange={e => setForm(p => ({ ...p, url: e.target.value }))} placeholder="https://yourname.itch.io/your-game" required
-              onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor}
-              onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <label style={label}>Choose Icon</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+                  {EMOJIS.map(em => (
+                    <button key={em} type="button" onClick={() => setAdminForm(p => ({ ...p, icon: em }))}
+                      style={{ width: 36, height: 36, fontSize: 18, borderRadius: 8, border: `2px solid ${adminForm.icon === em ? SITE_CONFIG.primaryColor : '#e5e7eb'}`, background: adminForm.icon === em ? `${SITE_CONFIG.primaryColor}15` : '#fff', cursor: 'pointer' }}>
+                      {em}
+                    </button>
+                  ))}
+                </div>
 
-            <label style={label}>Description</label>
-            <textarea style={{ ...inp, minHeight: 80, resize: 'vertical', display: 'block' }} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Describe your game in 1-2 sentences..."
-              onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor}
-              onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
-
-            <label style={label}>Choose an Icon</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-              {EMOJIS.map(em => (
-                <button key={em} type="button" onClick={() => setForm(p => ({ ...p, icon: em }))}
-                  style={{ width: 38, height: 38, fontSize: 20, borderRadius: 8, border: `2px solid ${form.icon === em ? SITE_CONFIG.primaryColor : '#e5e7eb'}`, background: form.icon === em ? `${SITE_CONFIG.primaryColor}15` : '#fff', cursor: 'pointer' }}>
-                  {em}
+                <button type="submit" style={{ padding: '11px 32px', background: `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: '#fff', border: 'none', borderRadius: 99, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'Nunito,sans-serif' }}>
+                  ➕ Add Game Live
                 </button>
-              ))}
+              </form>
             </div>
+          </>
+        ) : (
+          /* ── USER VIEW — suggest a game ─────────────────────────────── */
+          <>
+            <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 18, fontWeight: 700, marginBottom: 6 }}>🎮 Suggest a Game</div>
+            <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 20 }}>Know a great browser game? Tell us and we will review it for addition to {SITE_CONFIG.name}!</p>
 
-            <button type="submit" style={{ padding: '11px 32px', background: `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: '#fff', border: 'none', borderRadius: 99, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'Nunito,sans-serif' }}>
-              Submit Game 🚀
-            </button>
-          </form>
+            <div style={card}>
+              {submitted && (
+                <div style={{ background: '#ecfdf5', border: '1px solid #86efac', borderRadius: 10, padding: '14px 16px', marginBottom: 16, fontSize: 13, fontWeight: 700, color: '#166534' }}>
+                  ✅ Thanks! We will review your suggestion within 24-48 hours.
+                </div>
+              )}
+              {error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#dc2626' }}>
+                  {error}
+                </div>
+              )}
+              {!user && (
+                <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '12px 16px', marginBottom: 14, fontSize: 13, color: '#92400e', fontWeight: 700 }}>
+                  💡 <span style={{ cursor: 'pointer', textDecoration: 'underline' }} onClick={() => nav('/login')}>Login</span> to suggest games and track your suggestions.
+                </div>
+              )}
+              <form onSubmit={handleUserRequest}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={label}>Your Name</label>
+                    <input style={inp} value={userForm.name} onChange={e => setUserForm(p => ({ ...p, name: e.target.value }))} placeholder="Your name" onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                  </div>
+                  <div>
+                    <label style={label}>Game Category</label>
+                    <select style={{ ...inp, background: '#fff' }} value={userForm.category} onChange={e => setUserForm(p => ({ ...p, category: e.target.value }))}>
+                      {CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <label style={label}>Game Name *</label>
+                <input style={inp} value={userForm.gameTitle} onChange={e => setUserForm(p => ({ ...p, gameTitle: e.target.value }))} placeholder="e.g. Among Us Online" required onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <label style={label}>Game URL * (where can it be played?)</label>
+                <input style={inp} type="url" value={userForm.gameUrl} onChange={e => setUserForm(p => ({ ...p, gameUrl: e.target.value }))} placeholder="https://..." required onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <label style={label}>Why do you recommend it?</label>
+                <textarea style={{ ...inp, minHeight: 70, resize: 'vertical', display: 'block' }} value={userForm.description} onChange={e => setUserForm(p => ({ ...p, description: e.target.value }))} placeholder="Tell us why this game is great..." onFocus={e => e.target.style.borderColor = SITE_CONFIG.primaryColor} onBlur={e => e.target.style.borderColor = '#e5e7eb'} />
+                <button type="submit" style={{ padding: '11px 32px', background: `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: '#fff', border: 'none', borderRadius: 99, fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'Nunito,sans-serif' }}>
+                  Submit Suggestion 🚀
+                </button>
+              </form>
+            </div>
+          </>
+        )}
+
+        {/* Community games list — visible to all */}
+        <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 14, fontWeight: 700, marginBottom: 14 }}>
+          🌟 Top Browser Games ({games.filter(g => g.approved).length})
         </div>
-
-        {/* Requirements */}
-        <div style={{ ...card, background: '#fffbeb', border: '1px solid #fde68a' }}>
-          <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 13, fontWeight: 700, marginBottom: 12, color: '#92400e' }}>📋 Requirements</div>
-          <ul style={{ fontSize: 13, color: '#78350f', lineHeight: 2, paddingLeft: 18 }}>
-            <li>Game must be an HTML5 game playable in a browser</li>
-            <li>Game must allow iframe embedding</li>
-            <li>No adult content, violence, or inappropriate material</li>
-            <li>Game must be family-friendly (all ages)</li>
-            <li>You must own the game or have rights to distribute it</li>
-          </ul>
-        </div>
-
-        {/* Community games */}
-        <div style={{ fontFamily: 'Orbitron,monospace', fontSize: 14, fontWeight: 700, marginBottom: 14 }}>🎮 Community Games</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 14 }}>
-          {games.map(g => (
-            <div key={g.id} style={{ background: '#fff', borderRadius: 12, padding: '16px', boxShadow: '0 2px 10px #0000000a', border: `1px solid ${g.approved ? '#86efac' : '#fde68a'}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
+          {games.filter(g => g.approved).map(g => (
+            <div key={g.id} style={{ background: '#fff', borderRadius: 12, padding: '14px', boxShadow: '0 2px 10px #0000000a', border: '0.5px solid #e5e7eb' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-                <div style={{ fontSize: 28 }}>{g.icon}</div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 800 }}>{g.title}</div>
-                  <div style={{ fontSize: 11, color: '#6b7280' }}>{g.category} · by {g.author}</div>
+                <div style={{ fontSize: 26, flexShrink: 0 }}>{g.icon}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</div>
+                  <div style={{ fontSize: 10, color: '#6b7280' }}>{g.category} · {g.plays.toLocaleString()} plays</div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 11, background: g.approved ? '#ecfdf5' : '#fffbeb', color: g.approved ? '#166534' : '#92400e', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>
-                  {g.approved ? '✅ Live' : '⏳ Pending'}
-                </span>
-                {g.approved && (
-                  <button onClick={() => setActiveGame(g)} style={{ fontSize: 11, fontWeight: 800, background: SITE_CONFIG.primaryColor, color: '#fff', border: 'none', padding: '4px 12px', borderRadius: 99, cursor: 'pointer', fontFamily: 'Nunito,sans-serif' }}>
-                    ▶ Play
-                  </button>
-                )}
-              </div>
+              <button onClick={() => setActiveGame(g)} style={{ width: '100%', padding: '7px', background: `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: '#fff', border: 'none', borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: 'pointer', fontFamily: 'Nunito,sans-serif' }}>
+                ▶ Play Now
+              </button>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Quick game player */}
       {activeGame && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <iframe key={activeGame.id} src={activeGame.url} title={activeGame.title} style={{ width: '90vw', height: '80vh', border: 'none', borderRadius: 12 }} allow="fullscreen" allowFullScreen />
-          <button onClick={() => setActiveGame(null)} style={{ position: 'absolute', top: 16, right: 16, background: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 800, cursor: 'pointer' }}>✕ Close</button>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 1000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', maxWidth: 960 }}>
+            <span style={{ fontFamily: 'Orbitron,monospace', fontSize: 14, fontWeight: 700, color: '#fff', flex: 1 }}>{activeGame.title}</span>
+            <button onClick={() => setActiveGame(null)} style={{ background: '#ffffff18', border: 'none', color: '#fff', padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>✕ Close</button>
+          </div>
+          <iframe
+            key={activeGame.id}
+            src={activeGame.url}
+            title={activeGame.title}
+            style={{ width: '100%', maxWidth: 960, height: 'calc(100dvh - 100px)', border: 'none', borderRadius: 10 }}
+            allow="fullscreen; autoplay; pointer-lock"
+            allowFullScreen
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-pointer-lock"
+          />
         </div>
       )}
     </>

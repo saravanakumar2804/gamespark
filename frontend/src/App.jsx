@@ -20,35 +20,37 @@ export default function App() {
       <BrowserRouter>
         <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
 
-          {/* ── Mobile overlay — clicking it closes sidebar ── */}
+          {/*
+            FIX: Overlay sits BEHIND the sidebar (z-index 150)
+            Sidebar sits IN FRONT (z-index 200)
+            So clicking overlay closes sidebar without covering content
+            Overlay only renders when sidebar is open
+          */}
           {sidebarOpen && (
             <div
               onClick={() => setSidebarOpen(false)}
               style={{
-                position: 'fixed', inset: 0,
-                background: 'rgba(0,0,0,0.55)',
-                zIndex: 190,
-                // Only show on mobile
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.45)',
+                zIndex: 150,         // BEHIND sidebar (200) but ABOVE content
+                backdropFilter: 'none', // NO blur — that caused the mirror effect
               }}
-              className="mobile-overlay"
             />
           )}
 
-          {/* ── Sidebar ── */}
-          <Sidebar
-            open={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-          />
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-          {/* ── Main content ── */}
-          <div style={{
-            flex: 1,
-            // On desktop: push right of sidebar. On mobile: full width (CSS handles this)
-            marginLeft: 'var(--sidebar-w)',
-            display: 'flex',
-            flexDirection: 'column',
-            minWidth: 0,
-          }} className="main-content">
+          <div
+            style={{
+              flex: 1,
+              marginLeft: 'var(--sidebar-w)',
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0,
+            }}
+            className="main-content"
+          >
             <Navbar onMenuClick={() => setSidebarOpen(o => !o)} />
             <main style={{ flex: 1 }}>
               <Routes>
@@ -63,13 +65,12 @@ export default function App() {
                 <Route path="/about"         element={<About />} />
                 <Route path="/feedback"      element={<Feedback />} />
                 <Route path="/my-games"      element={<MyGames />} />
-                <Route path="*"              element={<NotFound />} />
+                <Route path="*"             element={<NotFound />} />
               </Routes>
             </main>
           </div>
         </div>
 
-        {/* Global responsive styles */}
         <style>{`
           :root { --sidebar-w: 240px; }
           @media (max-width: 768px) {
