@@ -12,7 +12,7 @@ const axios   = require('axios');
 router.get('/', async (req, res) => {
   try {
     const page  = parseInt(req.query.page)  || 1;
-    const limit = parseInt(req.query.limit) || 48;
+    const limit = parseInt(req.query.limit) || 96;
     const SID   = process.env.GAMEPIX_SID  || '';
 
     if (!SID) {
