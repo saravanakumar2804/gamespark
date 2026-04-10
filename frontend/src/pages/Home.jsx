@@ -9,7 +9,6 @@ import SITE_CONFIG from "../siteConfig";
 
 const API_URL = process.env.REACT_APP_API_URL || "https://gamespark-api.onrender.com";
 
-// ── Famous games — always shown even if backend is offline ────────────────────
 const FAMOUS_GAMES = [
   { id: "krunker",    title: "Krunker.io",      category: "shooter",     rating: "4.9", badge: "HOT", icon: "🔫", bg: "linear-gradient(135deg,#1e1b4b,#312e81)", url: "https://krunker.io/" },
   { id: "slither",    title: "Slither.io",       category: "multiplayer", rating: "4.8", badge: "HOT", icon: "🐍", bg: "linear-gradient(135deg,#15803d,#166534)", url: "https://slither.io/" },
@@ -40,15 +39,15 @@ const CAT_MAP = {
   puzzle:      ["puzzle","brain","logic","match","word","quiz"],
   racing:      ["racing","race","car","drive","speed","kart"],
   sports:      ["sport","football","soccer","basketball","tennis","golf"],
-  adventure:   ["adventure","rpg","quest","explore","platform"],
+  adventure:   ["adventure","rpg","quest","explore"],
   arcade:      ["arcade","classic","retro","platform","runner"],
   strategy:    ["strategy","chess","board","tower","defense"],
-  shooter:     ["shooter","shoot","gun","sniper","battle","krunker","shell","1v1","diep"],
+  shooter:     ["shooter","shoot","gun","sniper","krunker","1v1","diep","shell"],
   casual:      ["casual","idle","clicker","relax","solitaire","wordle","sudoku","mahjong"],
-  multiplayer: ["multiplayer","io","online","pvp","slither","agar","paper","smash"],
+  multiplayer: ["multiplayer","io","online","pvp","slither","agar","paper"],
 };
 
-function badge() {
+function randomBadge() {
   const r = Math.random();
   return r > 0.85 ? "HOT" : r > 0.75 ? "NEW" : r > 0.68 ? "TOP" : "";
 }
@@ -63,7 +62,7 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages]   = useState(1);
-  const [apiStatus, setApiStatus]     = useState('loading'); // 'loading' | 'ok' | 'offline'
+  const [apiStatus, setApiStatus]     = useState('loading');
   const seenIds = useRef(new Set(FAMOUS_GAMES.map(g => g.id)));
 
   const { user } = useAuth();
@@ -74,15 +73,19 @@ export default function Home() {
     id: String(g.id), title: g.title || "Game",
     category: (g.category || "arcade").toLowerCase(),
     thumbnail: g.thumbnail || "", url: g.url || "",
-    rating: (Math.random() * 1.5 + 3.5).toFixed(1), badge: badge(),
+    rating: (Math.random() * 1.5 + 3.5).toFixed(1), badge: randomBadge(),
   });
 
-  // ── Fetch with timeout — so we don't wait forever if server is offline ───────
-  const fetchWithTimeout = async (url, timeoutMs = 8000) => {
+  // FIX: Each call creates its OWN controller — no shared signal reuse
+  const fetchPage = async (pageNum) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // FIX: 25 second timeout — Render free tier needs up to 30s to wake from sleep
+    const timer = setTimeout(() => controller.abort(), 25000);
     try {
-      const res = await fetch(url, { signal: controller.signal });
+      const res = await fetch(
+        `${API_URL}/api/games?page=${pageNum}&limit=96`,
+        { signal: controller.signal }
+      );
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
@@ -92,12 +95,11 @@ export default function Home() {
     }
   };
 
-  // ── Initial load ──────────────────────────────────────────────────────────────
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true);
-        const data = await fetchWithTimeout(`${API_URL}/api/games?page=1&limit=96`);
+        const data  = await fetchPage(1);
         const items = (data.items || []).filter(g => g.url && !seenIds.current.has(String(g.id)));
         items.forEach(g => seenIds.current.add(String(g.id)));
         const mapped = items.map(mapGame);
@@ -109,14 +111,14 @@ export default function Home() {
           setCurrentPage(1);
           setApiStatus('ok');
         } else {
-          // API responded but returned no games — still show famous games
-          setApiStatus('ok');
+          // items empty — API is up but no games returned
+          // Could be wrong SID or GamePix API changed
+          console.warn('[Home] API returned 0 items. Check GAMEPIX_SID in Render env vars.');
+          setApiStatus('empty');
         }
       } catch (err) {
-        // API offline or CORS error — show famous games without crashing
         console.warn('[Home] API unavailable:', err.message);
         setApiStatus('offline');
-        // Famous games still show — users can play
       } finally {
         setLoading(false);
       }
@@ -124,13 +126,12 @@ export default function Home() {
     init();
   }, []);
 
-  // ── Load more ─────────────────────────────────────────────────────────────────
   const handleLoadMore = async () => {
-    if (loadingMore || apiStatus === 'offline') return;
+    if (loadingMore || apiStatus === 'offline' || apiStatus === 'empty') return;
     const next = currentPage + 1;
     try {
       setLoadingMore(true);
-      const data = await fetchWithTimeout(`${API_URL}/api/games?page=${next}&limit=96`);
+      const data  = await fetchPage(next);
       const items = (data.items || []).filter(g => g.url && !seenIds.current.has(String(g.id)));
       items.forEach(g => seenIds.current.add(String(g.id)));
       const mapped = items.map(mapGame);
@@ -151,11 +152,10 @@ export default function Home() {
     }
   };
 
-  // ── Filter ────────────────────────────────────────────────────────────────────
   useEffect(() => {
     let base = allGames;
     if (activeCat !== "All") {
-      const catKey  = activeCat.toLowerCase();
+      const catKey   = activeCat.toLowerCase();
       const keywords = CAT_MAP[catKey] || [catKey];
       base = base.filter(g => {
         const gc    = (g.category || "").toLowerCase();
@@ -175,7 +175,7 @@ export default function Home() {
 
   const showLoadMore = !loading && apiStatus === 'ok' && currentPage < totalPages && activeCat === "All" && !searchQ;
 
-  // ── Styles ────────────────────────────────────────────────────────────────────
+  // ── Styles ─────────────────────────────────────────────────────────────────
   const p      = { padding: "14px 16px 60px" };
   const hero   = { background: "linear-gradient(135deg,#0d0d1a,#1a1a2e)", borderRadius: 14, padding: "24px 22px", marginBottom: 16, position: "relative", overflow: "hidden" };
   const grid   = { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 12, marginBottom: 20 };
@@ -193,15 +193,11 @@ export default function Home() {
         <meta property="og:title" content={SITE_CONFIG.seoTitle} />
         <meta property="og:description" content={SITE_CONFIG.seoDescription} />
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={SITE_CONFIG.url} />
         <link rel="canonical" href={SITE_CONFIG.url} />
       </Helmet>
 
       <div style={p}>
-        {/* AdSense — only render if real publisher ID is set */}
-        {process.env.REACT_APP_ADSENSE_ID && !process.env.REACT_APP_ADSENSE_ID.includes('XXXX') && (
-          <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_1 || ''} format="horizontal" style={{ height: 90, marginBottom: 14 }} />
-        )}
+        <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_1} format="horizontal" style={{ height: 90, marginBottom: 14 }} />
 
         {/* Hero */}
         <div style={hero}>
@@ -239,7 +235,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Category chips */}
+        {/* Categories */}
         <div style={catRow}>
           {CATEGORIES.map(cat => (
             <button key={cat} style={chip(activeCat === cat)} onClick={() => setActiveCat(cat)}>
@@ -254,7 +250,7 @@ export default function Home() {
           </div>
         )}
 
-        {/* Famous games — always visible */}
+        {/* Famous games */}
         {activeCat === "All" && !searchQ && (
           <>
             <div style={secHdr}><div style={dot} />⭐ Famous Browser Games</div>
@@ -263,30 +259,24 @@ export default function Home() {
                 <GameCard key={game.id} game={game} onClick={setActiveGame} />
               ))}
             </div>
-
-            {/* AdSense mid */}
-            {process.env.REACT_APP_ADSENSE_ID && !process.env.REACT_APP_ADSENSE_ID.includes('XXXX') && (
-              <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_2 || ''} format="rectangle" style={{ height: 200, marginBottom: 20 }} />
-            )}
+            <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_2} format="rectangle" style={{ height: 200, marginBottom: 20 }} />
           </>
         )}
 
-        {/* GamePix games section */}
+        {/* GamePix games */}
         <div style={secHdr}>
           <div style={dot} />
           {searchQ ? "Search Results" : activeCat === "All" ? "🔥 All Games" : `${activeCat} Games`}
           <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>({filtered.length})</span>
-          {apiStatus === 'offline' && (
-            <span style={{ fontSize: 10, color: "#ff6b35", fontWeight: 700, marginLeft: 4 }}>
-              (API starting up...)
-            </span>
-          )}
+          {apiStatus === 'offline' && <span style={{ fontSize: 10, color: "#ff6b35", fontWeight: 700 }}>(Server waking up...)</span>}
+          {apiStatus === 'empty'   && <span style={{ fontSize: 10, color: "#ffd166", fontWeight: 700 }}>(Check GamePix SID in Render)</span>}
         </div>
 
         {loading ? (
           <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>🎮</div>
-            Loading games...
+            <div style={{ fontWeight: 700 }}>Loading games...</div>
+            {/* <div style={{ fontSize: 12, marginTop: 6, color: "#9ca3af" }}>Server may be waking up — please wait up to 30s</div> */}
           </div>
         ) : (
           <div style={grid}>
@@ -299,30 +289,23 @@ export default function Home() {
           </div>
         )}
 
-        {/* Load more */}
         {showLoadMore && (
           <div style={{ textAlign: "center", margin: "4px 0 24px" }}>
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              style={{ padding: "11px 36px", background: loadingMore ? "#d1d5db" : `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: "#fff", border: "none", borderRadius: 99, cursor: loadingMore ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 800, fontFamily: "Nunito,sans-serif" }}
-            >
+            <button onClick={handleLoadMore} disabled={loadingMore}
+              style={{ padding: "11px 36px", background: loadingMore ? "#d1d5db" : `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: "#fff", border: "none", borderRadius: 99, cursor: loadingMore ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 800, fontFamily: "Nunito,sans-serif" }}>
               {loadingMore ? "Loading..." : "🎮 Load More Games"}
             </button>
           </div>
         )}
 
-        {/* AdSense bottom */}
-        {process.env.REACT_APP_ADSENSE_ID && !process.env.REACT_APP_ADSENSE_ID.includes('XXXX') && (
-          <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_3 || ''} format="horizontal" style={{ height: 90, marginBottom: 20 }} />
-        )}
+        <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_3} format="horizontal" style={{ height: 90, marginBottom: 20 }} />
 
         {/* SEO */}
-        <div style={{ padding: "20px", background: "#fff", borderRadius: 12, fontSize: 13, color: "#6b7280", lineHeight: 1.8, marginTop: 16 }}>
+        <div style={{ padding: "20px", background: "#fff", borderRadius: 12, fontSize: 13, color: "#6b7280", lineHeight: 1.8 }}>
           <h2 style={{ fontFamily: "Orbitron,monospace", fontSize: 14, color: "#1a1a2e", marginBottom: 8 }}>Free Online Games — No Download</h2>
-          <p>Play {SITE_CONFIG.gamesCount} free online games on {SITE_CONFIG.name}. Action, puzzle, racing, sports, adventure, arcade, strategy, shooter and multiplayer browser games — all free, no download, no sign-up needed.</p>
+          <p>Play {SITE_CONFIG.gamesCount} free online games on {SITE_CONFIG.name}. Action, puzzle, racing, sports, arcade, strategy, shooter and multiplayer browser games — all free, no download, no sign-up needed. Play Krunker.io, Slither.io, Smash Karts and more!</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
-            {["free online games","browser games","no download games","html5 games","io games","multiplayer games","puzzle games","action games","krunker.io","slither.io","smash karts","shell shockers"].map(kw => (
+            {["free online games","browser games","no download games","html5 games","io games","multiplayer games","krunker.io","slither.io","smash karts","puzzle games","action games","racing games"].map(kw => (
               <span key={kw} style={{ background: "#f3f4f6", padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700 }}>{kw}</span>
             ))}
           </div>

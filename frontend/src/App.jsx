@@ -10,6 +10,7 @@ import Profile from './pages/Profile';
 import Admin from './pages/Admin';
 import Feedback from './pages/Feedback';
 import MyGames from './pages/MyGames';
+import Multiplayer from './pages/Multiplayer';
 import { Privacy, About, CategoryPage, NotFound, Leaderboard as LeaderboardPage } from './pages/Leaderboard';
 
 export default function App() {
@@ -17,24 +18,19 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <BrowserRouter>
+      {/* FIX: future flags remove React Router v6 warnings */}
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <div style={{ display: 'flex', minHeight: '100vh', position: 'relative' }}>
 
-          {/*
-            FIX: Overlay sits BEHIND the sidebar (z-index 150)
-            Sidebar sits IN FRONT (z-index 200)
-            So clicking overlay closes sidebar without covering content
-            Overlay only renders when sidebar is open
-          */}
+          {/* Overlay — behind sidebar, closes it when tapped */}
           {sidebarOpen && (
             <div
               onClick={() => setSidebarOpen(false)}
               style={{
-                position: 'fixed',
-                inset: 0,
+                position: 'fixed', inset: 0,
                 background: 'rgba(0,0,0,0.45)',
-                zIndex: 150,         // BEHIND sidebar (200) but ABOVE content
-                backdropFilter: 'none', // NO blur — that caused the mirror effect
+                zIndex: 150,
+                // NO backdropFilter — that caused the mirror effect
               }}
             />
           )}
@@ -42,13 +38,7 @@ export default function App() {
           <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
           <div
-            style={{
-              flex: 1,
-              marginLeft: 'var(--sidebar-w)',
-              display: 'flex',
-              flexDirection: 'column',
-              minWidth: 0,
-            }}
+            style={{ flex: 1, marginLeft: 'var(--sidebar-w)', display: 'flex', flexDirection: 'column', minWidth: 0 }}
             className="main-content"
           >
             <Navbar onMenuClick={() => setSidebarOpen(o => !o)} />
@@ -60,12 +50,13 @@ export default function App() {
                 <Route path="/profile"       element={<Profile />} />
                 <Route path="/admin"         element={<Admin />} />
                 <Route path="/leaderboard"   element={<LeaderboardPage />} />
+                <Route path="/multiplayer"   element={<Multiplayer />} />
                 <Route path="/category/:cat" element={<CategoryPage />} />
                 <Route path="/privacy"       element={<Privacy />} />
                 <Route path="/about"         element={<About />} />
                 <Route path="/feedback"      element={<Feedback />} />
                 <Route path="/my-games"      element={<MyGames />} />
-                <Route path="*"             element={<NotFound />} />
+                <Route path="*"              element={<NotFound />} />
               </Routes>
             </main>
           </div>
