@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Helmet } from "react-helmet-async";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import GameCard from "../components/GameCard";
 import GamePlayer from "../components/GamePlayer";
 import AdZone from "../components/AdZone";
@@ -33,24 +33,15 @@ const FAMOUS_GAMES = [
 ];
 
 const CATEGORIES = ["All","Action","Puzzle","Racing","Sports","Adventure","Arcade","Strategy","Shooter","Casual","Multiplayer"];
-
 const CAT_MAP = {
-  action:      ["action","fight","battle","war","combat"],
-  puzzle:      ["puzzle","brain","logic","match","word","quiz"],
-  racing:      ["racing","race","car","drive","speed","kart"],
-  sports:      ["sport","football","soccer","basketball","tennis","golf"],
-  adventure:   ["adventure","rpg","quest","explore"],
-  arcade:      ["arcade","classic","retro","platform","runner"],
-  strategy:    ["strategy","chess","board","tower","defense"],
-  shooter:     ["shooter","shoot","gun","sniper","krunker","1v1","diep","shell"],
-  casual:      ["casual","idle","clicker","relax","solitaire","wordle","sudoku","mahjong"],
-  multiplayer: ["multiplayer","io","online","pvp","slither","agar","paper"],
+  action:["action","fight","battle","war","combat"],puzzle:["puzzle","brain","logic","match","word","quiz"],
+  racing:["racing","race","car","drive","speed","kart"],sports:["sport","football","soccer","basketball","tennis","golf"],
+  adventure:["adventure","rpg","quest","explore"],arcade:["arcade","classic","retro","platform","runner","dino","snake","pacman","flappy"],
+  strategy:["strategy","chess","board","tower","defense"],shooter:["shooter","shoot","gun","sniper","krunker","1v1","diep","shell"],
+  casual:["casual","idle","clicker","relax","solitaire","wordle","sudoku","mahjong","memory"],
+  multiplayer:["multiplayer","io","online","pvp","slither","agar","paper","smash"],
 };
-
-function randomBadge() {
-  const r = Math.random();
-  return r > 0.85 ? "HOT" : r > 0.75 ? "NEW" : r > 0.68 ? "TOP" : "";
-}
+function randomBadge(){const r=Math.random();return r>.85?"HOT":r>.75?"NEW":r>.68?"TOP":"";}
 
 export default function Home() {
   const [apiGames, setApiGames]       = useState([]);
@@ -62,77 +53,51 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages]   = useState(1);
-  const [apiStatus, setApiStatus]     = useState('loading');
   const seenIds = useRef(new Set(FAMOUS_GAMES.map(g => g.id)));
 
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const searchQ  = new URLSearchParams(location.search).get("search") || "";
 
-  const mapGame = (g) => ({
-    id: String(g.id), title: g.title || "Game",
-    category: (g.category || "arcade").toLowerCase(),
-    thumbnail: g.thumbnail || "", url: g.url || "",
-    rating: (Math.random() * 1.5 + 3.5).toFixed(1), badge: randomBadge(),
-  });
+  const mapGame = (g) => ({ id:String(g.id), title:g.title||"Game", category:(g.category||"arcade").toLowerCase(), thumbnail:g.thumbnail||"", url:g.url||"", rating:(Math.random()*1.5+3.5).toFixed(1), badge:randomBadge() });
 
-  // FIX: Each call creates its OWN controller — no shared signal reuse
   const fetchPage = async (pageNum) => {
-    const controller = new AbortController();
-    // FIX: 25 second timeout — Render free tier needs up to 30s to wake from sleep
-    const timer = setTimeout(() => controller.abort(), 25000);
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 25000);
     try {
-      const res = await fetch(
-        `${API_URL}/api/games?page=${pageNum}&limit=96`,
-        { signal: controller.signal }
-      );
+      const res = await fetch(`${API_URL}/api/games?page=${pageNum}&limit=96`, { signal: ctrl.signal });
       clearTimeout(timer);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return await res.json();
-    } catch (err) {
-      clearTimeout(timer);
-      throw err;
-    }
+    } catch (err) { clearTimeout(timer); throw err; }
   };
 
   useEffect(() => {
     const init = async () => {
       try {
-        setLoading(true);
         const data  = await fetchPage(1);
-        const items = (data.items || []).filter(g => g.url && !seenIds.current.has(String(g.id)));
+        const items = (data.items||[]).filter(g => g.url && !seenIds.current.has(String(g.id)));
         items.forEach(g => seenIds.current.add(String(g.id)));
         const mapped = items.map(mapGame);
-
         if (mapped.length > 0) {
           setApiGames(mapped);
           setAllGames([...FAMOUS_GAMES, ...mapped]);
           setTotalPages(data.totalPages > 1 ? data.totalPages : (mapped.length >= 90 ? 10 : 1));
-          setCurrentPage(1);
-          setApiStatus('ok');
-        } else {
-          // items empty — API is up but no games returned
-          // Could be wrong SID or GamePix API changed
-          console.warn('[Home] API returned 0 items. Check GAMEPIX_SID in Render env vars.');
-          setApiStatus('empty');
         }
-      } catch (err) {
-        console.warn('[Home] API unavailable:', err.message);
-        setApiStatus('offline');
-      } finally {
-        setLoading(false);
-      }
+      } catch {} // Silent fail — famous games still show
+      finally { setLoading(false); }
     };
     init();
   }, []);
 
   const handleLoadMore = async () => {
-    if (loadingMore || apiStatus === 'offline' || apiStatus === 'empty') return;
+    if (loadingMore) return;
     const next = currentPage + 1;
     try {
       setLoadingMore(true);
       const data  = await fetchPage(next);
-      const items = (data.items || []).filter(g => g.url && !seenIds.current.has(String(g.id)));
+      const items = (data.items||[]).filter(g => g.url && !seenIds.current.has(String(g.id)));
       items.forEach(g => seenIds.current.add(String(g.id)));
       const mapped = items.map(mapGame);
       if (mapped.length > 0) {
@@ -141,48 +106,36 @@ export default function Home() {
         setAllGames([...FAMOUS_GAMES, ...newApi]);
         setCurrentPage(next);
         const tp = data.totalPages || totalPages;
-        setTotalPages(tp > next ? tp : (mapped.length >= 90 ? next + 3 : next));
-      } else {
-        setTotalPages(currentPage);
-      }
-    } catch (err) {
-      console.warn('[Home] Load more failed:', err.message);
-    } finally {
-      setLoadingMore(false);
-    }
+        setTotalPages(tp > next ? tp : (mapped.length >= 90 ? next+3 : next));
+      } else { setTotalPages(currentPage); }
+    } catch {}
+    finally { setLoadingMore(false); }
   };
 
   useEffect(() => {
     let base = allGames;
     if (activeCat !== "All") {
-      const catKey   = activeCat.toLowerCase();
-      const keywords = CAT_MAP[catKey] || [catKey];
-      base = base.filter(g => {
-        const gc    = (g.category || "").toLowerCase();
-        const title = (g.title || "").toLowerCase();
-        const id    = (g.id || "").toLowerCase();
-        return keywords.some(kw => gc.includes(kw) || title.includes(kw) || id.includes(kw));
-      });
+      const keywords = CAT_MAP[activeCat.toLowerCase()] || [activeCat.toLowerCase()];
+      base = base.filter(g => { const gc=(g.category||"").toLowerCase(),title=(g.title||"").toLowerCase(),id=(g.id||"").toLowerCase(); return keywords.some(kw=>gc.includes(kw)||title.includes(kw)||id.includes(kw)); });
     }
-    if (searchQ) {
-      base = base.filter(g =>
-        g.title.toLowerCase().includes(searchQ.toLowerCase()) ||
-        (g.category || "").toLowerCase().includes(searchQ.toLowerCase())
-      );
+    if (searchQ?.trim()) {
+      const q = searchQ.toLowerCase().trim();
+      base = base.filter(g => g.title.toLowerCase().includes(q)||(g.category||"").toLowerCase().includes(q));
     }
     setFiltered(base);
   }, [activeCat, searchQ, allGames]);
 
-  const showLoadMore = !loading && apiStatus === 'ok' && currentPage < totalPages && activeCat === "All" && !searchQ;
+  useEffect(() => { if (searchQ) setActiveCat("All"); }, [searchQ]);
 
-  // ── Styles ─────────────────────────────────────────────────────────────────
-  const p      = { padding: "14px 16px 60px" };
-  const hero   = { background: "linear-gradient(135deg,#0d0d1a,#1a1a2e)", borderRadius: 14, padding: "24px 22px", marginBottom: 16, position: "relative", overflow: "hidden" };
-  const grid   = { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 12, marginBottom: 20 };
-  const catRow = { display: "flex", gap: 7, overflowX: "auto", paddingBottom: 6, marginBottom: 16, scrollbarWidth: "none" };
-  const chip   = a => ({ display: "inline-flex", alignItems: "center", padding: "6px 13px", borderRadius: 99, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", border: `2px solid ${a ? SITE_CONFIG.primaryColor : "transparent"}`, background: a ? "#fff8f5" : "#fff", color: a ? SITE_CONFIG.primaryColor : "#1a1a2e", boxShadow: "0 2px 6px #00000008", transition: "all 0.15s" });
-  const dot    = { width: 7, height: 7, borderRadius: "50%", background: SITE_CONFIG.primaryColor, boxShadow: `0 0 6px ${SITE_CONFIG.primaryColor}`, flexShrink: 0 };
-  const secHdr = { display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontFamily: "Orbitron,monospace", fontSize: 13, fontWeight: 700, color: "#1a1a2e" };
+  const showLoadMore = !loading && currentPage < totalPages && activeCat === "All" && !searchQ;
+
+  const p      = { padding: "14px 14px 60px" };
+  const hero   = { background: "linear-gradient(135deg,#0d0d1a,#1a1a2e)", borderRadius: 14, padding: "22px 20px", marginBottom: 14, position: "relative", overflow: "hidden" };
+  const grid   = { display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(148px,1fr))", gap: 10, marginBottom: 18 };
+  const catRow = { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 6, marginBottom: 14, scrollbarWidth: "none" };
+  const chip   = a => ({ display:"inline-flex", alignItems:"center", padding:"5px 12px", borderRadius:99, fontSize:12, fontWeight:800, cursor:"pointer", whiteSpace:"nowrap", border:`2px solid ${a?SITE_CONFIG.primaryColor:"transparent"}`, background:a?"#fff8f5":"#fff", color:a?SITE_CONFIG.primaryColor:"#1a1a2e", boxShadow:"0 2px 6px #00000008", transition:"all 0.15s" });
+  const dot    = { width:7, height:7, borderRadius:"50%", background:SITE_CONFIG.primaryColor, boxShadow:`0 0 6px ${SITE_CONFIG.primaryColor}`, flexShrink:0 };
+  const secHdr = { display:"flex", alignItems:"center", gap:8, marginBottom:10, fontFamily:"Orbitron,monospace", fontSize:13, fontWeight:700, color:"#1a1a2e", flexWrap:"wrap" };
 
   return (
     <>
@@ -190,31 +143,26 @@ export default function Home() {
         <title>{SITE_CONFIG.seoTitle}</title>
         <meta name="description" content={SITE_CONFIG.seoDescription} />
         <meta name="keywords" content={SITE_CONFIG.seoKeywords} />
-        <meta property="og:title" content={SITE_CONFIG.seoTitle} />
-        <meta property="og:description" content={SITE_CONFIG.seoDescription} />
-        <meta property="og:type" content="website" />
         <link rel="canonical" href={SITE_CONFIG.url} />
+        <script type="application/ld+json">{JSON.stringify({"@context":"https://schema.org","@type":"WebSite","name":SITE_CONFIG.name,"url":SITE_CONFIG.url,"description":SITE_CONFIG.seoDescription,"potentialAction":{"@type":"SearchAction","target":`${SITE_CONFIG.url}/?search={search_term_string}`,"query-input":"required name=search_term_string"}})}</script>
       </Helmet>
 
       <div style={p}>
-        <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_1} format="horizontal" style={{ height: 90, marginBottom: 14 }} />
-
         {/* Hero */}
         <div style={hero}>
-          <div style={{ position: "absolute", top: -30, right: -30, width: 220, height: 220, background: `radial-gradient(circle,${SITE_CONFIG.primaryColor}25,transparent 70%)`, pointerEvents: "none" }} />
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: `${SITE_CONFIG.primaryColor}18`, border: `1px solid ${SITE_CONFIG.primaryColor}`, color: SITE_CONFIG.primaryColor, fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", padding: "3px 10px", borderRadius: 99, marginBottom: 8 }}>
+          <div style={{ position:"absolute", top:-30, right:-30, width:220, height:220, background:`radial-gradient(circle,${SITE_CONFIG.primaryColor}22,transparent 70%)`, pointerEvents:"none" }} />
+          <div style={{ display:"inline-flex", alignItems:"center", gap:5, background:`${SITE_CONFIG.primaryColor}18`, border:`1px solid ${SITE_CONFIG.primaryColor}`, color:SITE_CONFIG.primaryColor, fontSize:10, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase", padding:"3px 10px", borderRadius:99, marginBottom:8 }}>
             ⚡ {SITE_CONFIG.gamesCount} Games — 100% Free
           </div>
-          <h1 style={{ fontFamily: "Orbitron,monospace", fontSize: "clamp(16px,4vw,28px)", fontWeight: 900, color: "#fff", lineHeight: 1.2, marginBottom: 8 }}>
-            {SITE_CONFIG.heroTitle}<br />
-            <span style={{ color: SITE_CONFIG.primaryColor }}>{SITE_CONFIG.heroTitleHighlight}</span>
+          <h1 style={{ fontFamily:"Orbitron,monospace", fontSize:"clamp(16px,4vw,26px)", fontWeight:900, color:"#fff", lineHeight:1.2, marginBottom:7 }}>
+            {SITE_CONFIG.heroTitle}<br/><span style={{ color:SITE_CONFIG.primaryColor }}>{SITE_CONFIG.heroTitleHighlight}</span>
           </h1>
-          <p style={{ color: "#ffffff77", fontSize: 12, marginBottom: 14 }}>{SITE_CONFIG.heroSubtitle}</p>
-          <div style={{ display: "flex", gap: 18 }}>
-            {SITE_CONFIG.heroStats.map(({ num, label }) => (
-              <div key={label} style={{ textAlign: "center" }}>
-                <div style={{ fontFamily: "Orbitron,monospace", fontSize: 15, fontWeight: 700, color: SITE_CONFIG.accentColor }}>{num}</div>
-                <div style={{ fontSize: 10, color: "#ffffff55", fontWeight: 600 }}>{label}</div>
+          <p style={{ color:"#ffffff77", fontSize:12, marginBottom:12 }}>{SITE_CONFIG.heroSubtitle}</p>
+          <div style={{ display:"flex", gap:16 }}>
+            {SITE_CONFIG.heroStats.map(({num,label})=>(
+              <div key={label} style={{ textAlign:"center" }}>
+                <div style={{ fontFamily:"Orbitron,monospace", fontSize:14, fontWeight:700, color:SITE_CONFIG.accentColor }}>{num}</div>
+                <div style={{ fontSize:10, color:"#ffffff55", fontWeight:600 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -222,97 +170,98 @@ export default function Home() {
 
         {/* Daily challenge */}
         {user && (
-          <div style={{ background: `linear-gradient(135deg,${SITE_CONFIG.secondaryColor},#a855f7)`, borderRadius: 12, padding: "14px 18px", marginBottom: 16, display: "flex", alignItems: "center", gap: 12, color: "#fff" }}>
-            <div style={{ fontSize: 26, background: "#ffffff20", width: 46, height: 46, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>🏆</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, opacity: 0.7, marginBottom: 2 }}>DAILY CHALLENGE</div>
-              <div style={{ fontFamily: "Orbitron,monospace", fontSize: 13, fontWeight: 700 }}>Play 5 games today!</div>
+          <div style={{ background:`linear-gradient(135deg,${SITE_CONFIG.secondaryColor},#a855f7)`, borderRadius:12, padding:"12px 16px", marginBottom:14, display:"flex", alignItems:"center", gap:12, color:"#fff" }}>
+            <div style={{ fontSize:24, background:"#ffffff20", width:42, height:42, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>🏆</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:9, fontWeight:800, letterSpacing:2, opacity:0.7, marginBottom:2 }}>DAILY CHALLENGE</div>
+              <div style={{ fontFamily:"Orbitron,monospace", fontSize:12, fontWeight:700 }}>Play 5 games today!</div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "Orbitron,monospace", fontSize: 18, fontWeight: 700, color: "#ffd166" }}>{user.gamesPlayed || 0}</div>
-              <div style={{ fontSize: 10, opacity: 0.7 }}>played</div>
+            <div style={{ textAlign:"right" }}>
+              <div style={{ fontFamily:"Orbitron,monospace", fontSize:16, fontWeight:700, color:"#ffd166" }}>{user.gamesPlayed||0}</div>
+              <div style={{ fontSize:9, opacity:0.7 }}>played</div>
             </div>
           </div>
         )}
 
-        {/* Categories */}
-        <div style={catRow}>
-          {CATEGORIES.map(cat => (
-            <button key={cat} style={chip(activeCat === cat)} onClick={() => setActiveCat(cat)}>
-              {cat === "All" ? "🎮 All" : cat}
-            </button>
-          ))}
-        </div>
-
-        {searchQ && (
-          <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 700 }}>
-            🔍 "{searchQ}" — {filtered.length} results
-          </div>
-        )}
-
-        {/* Famous games */}
-        {activeCat === "All" && !searchQ && (
-          <>
-            <div style={secHdr}><div style={dot} />⭐ Famous Browser Games</div>
-            <div style={grid}>
-              {FAMOUS_GAMES.map(game => (
-                <GameCard key={game.id} game={game} onClick={setActiveGame} />
-              ))}
-            </div>
-            <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_2} format="rectangle" style={{ height: 200, marginBottom: 20 }} />
-          </>
-        )}
-
-        {/* GamePix games */}
-        <div style={secHdr}>
-          <div style={dot} />
-          {searchQ ? "Search Results" : activeCat === "All" ? "🔥 All Games" : `${activeCat} Games`}
-          <span style={{ fontSize: 11, fontWeight: 600, color: "#6b7280" }}>({filtered.length})</span>
-          {apiStatus === 'offline' && <span style={{ fontSize: 10, color: "#ff6b35", fontWeight: 700 }}>(Server waking up...)</span>}
-          {apiStatus === 'empty'   && <span style={{ fontSize: 10, color: "#ffd166", fontWeight: 700 }}>(Check GamePix SID in Render)</span>}
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 40, color: "#6b7280" }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>🎮</div>
-            <div style={{ fontWeight: 700 }}>Loading games...</div>
-            {/* <div style={{ fontSize: 12, marginTop: 6, color: "#9ca3af" }}>Server may be waking up — please wait up to 30s</div> */}
-          </div>
-        ) : (
-          <div style={grid}>
-            {(activeCat === "All" && !searchQ
-              ? filtered.filter(g => !FAMOUS_GAMES.find(f => f.id === g.id))
-              : filtered
-            ).map(game => (
-              <GameCard key={game.id} game={game} onClick={setActiveGame} />
+        {/* Category chips */}
+        {!searchQ && (
+          <div style={catRow}>
+            {CATEGORIES.map(cat => (
+              <button key={cat} style={chip(activeCat===cat)} onClick={()=>setActiveCat(cat)}>
+                {cat==="All"?"🎮 All":cat}
+              </button>
             ))}
           </div>
         )}
 
+        {/* Search result banner */}
+        {searchQ && (
+          <div style={{ marginBottom:12, padding:"8px 12px", background:"#fff", borderRadius:10, fontSize:13, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+            <span>🔍 "{searchQ}" — {filtered.length} result{filtered.length!==1?"s":""}</span>
+            <button onClick={()=>navigate("/")} style={{ background:"#f3f4f6", border:"none", borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer", fontWeight:700, color:"#6b7280", fontFamily:"Nunito,sans-serif" }}>✕ Clear</button>
+          </div>
+        )}
+
+        {/* Famous games section */}
+        {activeCat==="All" && !searchQ && (
+          <>
+            <div style={secHdr}><div style={dot}/>⭐ Famous Browser Games</div>
+            <div style={grid}>
+              {FAMOUS_GAMES.map(game=><GameCard key={game.id} game={game} onClick={setActiveGame}/>)}
+            </div>
+            {/* Only show AdZone if real slot ID is configured */}
+            <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_2} format="rectangle" style={{ marginBottom:16 }}/>
+          </>
+        )}
+
+        {/* All games / category / search results */}
+        <div style={secHdr}>
+          <div style={dot}/>
+          {searchQ?"Search Results":activeCat==="All"?"🔥 All Games":`${activeCat} Games`}
+          <span style={{ fontSize:11, fontWeight:600, color:"#6b7280" }}>({filtered.length})</span>
+        </div>
+
+        {/* FIX: No more "Loading..." or "Server waking up" messages */}
+        {/* Games show immediately (famous ones) while API loads silently */}
+        {filtered.length===0 ? (
+          <div style={{ textAlign:"center", padding:40, color:"#9ca3af" }}>
+            <div style={{ fontSize:32, marginBottom:10 }}>🎮</div>
+            <div style={{ fontWeight:700 }}>No games found.</div>
+            {searchQ && <button onClick={()=>navigate("/")} style={{ marginTop:12, padding:"9px 22px", background:`linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color:"#fff", border:"none", borderRadius:99, fontSize:13, fontWeight:800, cursor:"pointer", fontFamily:"Nunito,sans-serif" }}>← All Games</button>}
+          </div>
+        ) : (
+          <div style={grid}>
+            {(searchQ||activeCat!=="All"
+              ? filtered
+              : filtered.filter(g=>!FAMOUS_GAMES.find(f=>f.id===g.id))
+            ).map(game=><GameCard key={game.id} game={game} onClick={setActiveGame}/>)}
+          </div>
+        )}
+
         {showLoadMore && (
-          <div style={{ textAlign: "center", margin: "4px 0 24px" }}>
+          <div style={{ textAlign:"center", margin:"4px 0 20px" }}>
             <button onClick={handleLoadMore} disabled={loadingMore}
-              style={{ padding: "11px 36px", background: loadingMore ? "#d1d5db" : `linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color: "#fff", border: "none", borderRadius: 99, cursor: loadingMore ? "not-allowed" : "pointer", fontSize: 14, fontWeight: 800, fontFamily: "Nunito,sans-serif" }}>
-              {loadingMore ? "Loading..." : "🎮 Load More Games"}
+              style={{ padding:"10px 32px", background:loadingMore?"#d1d5db":`linear-gradient(135deg,${SITE_CONFIG.primaryColor},#ff8c42)`, color:"#fff", border:"none", borderRadius:99, cursor:loadingMore?"not-allowed":"pointer", fontSize:13, fontWeight:800, fontFamily:"Nunito,sans-serif" }}>
+              {loadingMore?"Loading...":"🎮 Load More Games"}
             </button>
           </div>
         )}
 
-        <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_3} format="horizontal" style={{ height: 90, marginBottom: 20 }} />
+        <AdZone slot={process.env.REACT_APP_ADSENSE_SLOT_3} format="horizontal" style={{ marginBottom:16 }}/>
 
-        {/* SEO */}
-        <div style={{ padding: "20px", background: "#fff", borderRadius: 12, fontSize: 13, color: "#6b7280", lineHeight: 1.8 }}>
-          <h2 style={{ fontFamily: "Orbitron,monospace", fontSize: 14, color: "#1a1a2e", marginBottom: 8 }}>Free Online Games — No Download</h2>
-          <p>Play {SITE_CONFIG.gamesCount} free online games on {SITE_CONFIG.name}. Action, puzzle, racing, sports, arcade, strategy, shooter and multiplayer browser games — all free, no download, no sign-up needed. Play Krunker.io, Slither.io, Smash Karts and more!</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 10 }}>
-            {["free online games","browser games","no download games","html5 games","io games","multiplayer games","krunker.io","slither.io","smash karts","puzzle games","action games","racing games"].map(kw => (
-              <span key={kw} style={{ background: "#f3f4f6", padding: "2px 8px", borderRadius: 99, fontSize: 11, fontWeight: 700 }}>{kw}</span>
+        {/* SEO text */}
+        <div style={{ padding:"18px", background:"#fff", borderRadius:12, fontSize:13, color:"#6b7280", lineHeight:1.8 }}>
+          <h2 style={{ fontFamily:"Orbitron,monospace", fontSize:13, color:"#1a1a2e", marginBottom:8 }}>Free Online Games — No Download Needed</h2>
+          <p>Play {SITE_CONFIG.gamesCount} free online games on {SITE_CONFIG.name}. Action, puzzle, racing, sports, arcade, strategy, shooter and multiplayer browser games — all completely free, no download required, works on any device.</p>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:10 }}>
+            {["free online games","browser games","no download games","html5 games","io games","multiplayer games","puzzle games free","action games online","krunker.io","slither.io","smash karts","snake game online","car racing browser","play games free"].map(kw=>(
+              <span key={kw} style={{ background:"#f3f4f6", padding:"2px 7px", borderRadius:99, fontSize:11, fontWeight:700 }}>{kw}</span>
             ))}
           </div>
         </div>
       </div>
 
-      {activeGame && <GamePlayer game={activeGame} onClose={() => setActiveGame(null)} />}
+      {activeGame && <GamePlayer game={activeGame} onClose={()=>setActiveGame(null)}/>}
     </>
   );
 }

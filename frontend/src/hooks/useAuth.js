@@ -1,25 +1,37 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API = process.env.REACT_APP_API_URL || 'https://gamespark-api.onrender.com';
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('gs_token'));
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]       = useState(null);
+  const [loading, setLoading] = useState(true); // TRUE until auth check completes
+  const [token, setToken]     = useState(() => localStorage.getItem('gs_token'));
 
+  // On mount: check if stored token is still valid
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      axios.get(`${API}/api/auth/me`)
-        .then(r => setUser(r.data.user))
-        .catch(() => { localStorage.removeItem('gs_token'); setToken(null); })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+    const storedToken = localStorage.getItem('gs_token');
+    if (!storedToken) {
+      setLoading(false); // No token — not logged in, done
+      return;
     }
-  }, [token]);
+    // Verify token with backend
+    axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
+    axios.get(`${API}/api/auth/me`)
+      .then(r => {
+        setUser(r.data.user);
+        setToken(storedToken);
+      })
+      .catch(() => {
+        // Token expired or invalid — clear it
+        localStorage.removeItem('gs_token');
+        delete axios.defaults.headers.common['Authorization'];
+        setToken(null);
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const login = async (email, password) => {
     const { data } = await axios.post(`${API}/api/auth/login`, { email, password });
@@ -47,8 +59,10 @@ export const AuthProvider = ({ children }) => {
   };
 
   const toggleFavourite = async (gameId) => {
-    const { data } = await axios.post(`${API}/api/auth/favourite`, { gameId });
-    setUser(prev => ({ ...prev, favourites: data.favourites }));
+    try {
+      const { data } = await axios.post(`${API}/api/auth/favourite`, { gameId });
+      setUser(prev => ({ ...prev, favourites: data.favourites }));
+    } catch {}
   };
 
   return (

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d0d1a"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="spark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff6b35"/>
+      <stop offset="100%" style="stop-color:#ffd166"/>
+    </linearGradient>
+    <linearGradient id="ctrl" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#a855f7"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="100" cy="100" r="96" fill="url(#bg)" stroke="#ff6b35" stroke-width="1.5" opacity="0.9"/>
+  <circle cx="100" cy="100" r="89" fill="none" stroke="#ffffff" stroke-width="0.4" stroke-dasharray="3 7" opacity="0.12"/>
+  <rect x="36" y="76" width="128" height="60" rx="30" fill="url(#ctrl)"/>
+  <ellipse cx="60" cy="124" rx="19" ry="14" fill="#5b21b6"/>
+  <ellipse cx="140" cy="124" rx="19" ry="14" fill="#5b21b6"/>
+  <rect x="54" y="91" width="7" height="22" rx="2" fill="#fff" opacity="0.9"/>
+  <rect x="47" y="98" width="22" height="7" rx="2" fill="#fff" opacity="0.9"/>
+  <circle cx="133" cy="93" r="5" fill="#ff6b35"/>
+  <circle cx="147" cy="101" r="5" fill="#06d6a0"/>
+  <circle cx="119" cy="101" r="5" fill="#ffd166"/>
+  <circle cx="133" cy="109" r="5" fill="#f472b6"/>
+  <circle cx="100" cy="101" r="8" fill="#0d0d1a" stroke="#ffffff" stroke-width="1.2" opacity="0.85"/>
+  <circle cx="100" cy="101" r="4" fill="#ff6b35"/>
+  <polygon points="107,36 95,62 104,62 90,90 118,58 108,58 120,36" fill="url(#spark)" filter="url(#glow)"/>
+  <circle cx="84" cy="44" r="2.5" fill="#ffd166" opacity="0.9"/>
+  <circle cx="126" cy="50" r="2" fill="#ff6b35" opacity="0.85"/>
+  <circle cx="78" cy="60" r="1.5" fill="#fff" opacity="0.7"/>
+  <circle cx="132" cy="40" r="1.5" fill="#ffd166" opacity="0.65"/>
+  <circle cx="100" cy="14" r="2.5" fill="#ff6b35" opacity="0.55"/>
+  <circle cx="100" cy="186" r="2.5" fill="#7c3aed" opacity="0.55"/>
+</svg>
